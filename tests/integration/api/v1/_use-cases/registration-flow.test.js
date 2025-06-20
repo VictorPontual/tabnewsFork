@@ -1,4 +1,5 @@
 import { version as uuidVersion } from 'uuid';
+import { vi } from 'vitest';
 
 import activation from 'models/activation.js';
 import password from 'models/password.js';
@@ -165,5 +166,74 @@ describe('Use case: Registration Flow (all successfully)', () => {
       created_at: postUserResponseBody.created_at,
       updated_at: getUserResponseBody.updated_at,
     });
+  });
+});
+
+describe('Use case: Registration Flow - Error Handling', () => {
+  test('CT3 - Erro de validação: username inválido (status 400)', async () => {
+    const response = await fetch(`${orchestrator.webserverUrl}/api/v1/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: '', // Username inválido
+        email: 'user@gmail.com',
+        password: 'ValidPass123',
+      }),
+    });
+
+    const body = await response.json();
+    expect(response.status).toBe(400);
+    expect(body.key).toBe('username');
+  });
+
+  test('CT4 - Erro de validação: email inválido (status 400)', async () => {
+    const response = await fetch(`${orchestrator.webserverUrl}/api/v1/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'UserTest',
+        email: 'invalid-email', // Email inválido
+        password: 'ValidPass123',
+      }),
+    });
+
+    const body = await response.json();
+    expect(response.status).toBe(400);
+    expect(body.key).toBe('email');
+  });
+
+  test('CT5 - Erro de validação: password inválido (status 400)', async () => {
+    const response = await fetch(`${orchestrator.webserverUrl}/api/v1/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'UserTest',
+        email: 'user@gmail.com',
+        password: '', // Password inválido
+      }),
+    });
+
+    const body = await response.json();
+    expect(response.status).toBe(400);
+    expect(body.key).toBe('password');
+  });
+
+  test('CT7 - Erro de rede (simulação de falha de fetch)', async () => {
+    const originalFetch = global.fetch;
+    vi.spyOn(global, 'fetch').mockImplementation(() => Promise.reject(new Error('Network Failure')));
+
+    await expect(
+      fetch(`${orchestrator.webserverUrl}/api/v1/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: 'UserTest',
+          email: 'user@gmail.com',
+          password: 'ValidPass123',
+        }),
+      }),
+    ).rejects.toThrow('Network Failure');
+
+    global.fetch = originalFetch;
   });
 });
